@@ -1,4 +1,4 @@
-# User Management System
+# UserManagementSystem
 
 A simple CRUD (Create, Read, Update, Delete) application built with Next.js, TypeScript, and AWS serverless backend services.
 
