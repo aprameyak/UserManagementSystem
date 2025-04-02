@@ -1,26 +1,26 @@
-# UserManagementSystem
+# User Management System
 
-A simple CRUD (Create, Read, Update, Delete) application built with Next.js, TypeScript, and AWS serverless backend services.
+A full-stack web application for managing user data, built with Next.js, TypeScript, and AWS Lambda.
 
-## 🚀 Features
+## Features
 
-- Create new users with ID, username, and age
-- Read user information from the database
-- Update existing user details
-- Delete users from the system
-- Real-time form validation
-- Responsive design with Tailwind CSS
-- Loading states and error handling
+- ✨ Create new users
+- 📝 Update existing user information
+- 🔍 View user details
+- 🗑️ Delete users
+- 📱 Responsive design
+- ⚡ Real-time updates
+- 🔒 Type-safe implementation
 
-## 🛠️ Tech Stack
+## Tech Stack
 
-### Frontend
-- [Next.js]
-- [TypeScript]
-- [Tailwind CSS]
+- **Frontend:**
+  - Next.js
+  - TypeScript
+  - React.s
+  - CSS
 
-
-### Backend
-- [AWS Lambda]
-- [Amazon DynamoDB]
-- [Amazon API Gateway]
+- **Backend:**
+  - AWS Lambda
+  - DynamoDB
+  - API Gateway
