@@ -58,7 +58,7 @@
     "components/**/*.tsx",
     "lib/**/*.ts",
     "types/**/*.ts"
-  ],
+, "next.config.js"  ],
   "exclude": ["node_modules", ".next", "out"],
   "typeRoots": ["./node_modules/@types", "./types"]
 }
