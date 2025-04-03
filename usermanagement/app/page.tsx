@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, CSSProperties } from "react";
+import { FaEdit, FaTrash, FaUserPlus } from 'react-icons/fa';
 
 if (!process.env.NEXT_PUBLIC_API_BASE_URL) {
   throw new Error('API Base URL not configured');
@@ -20,11 +21,10 @@ interface UserFormData {
   age: string;
 }
 
-// Type-safe styles
 const styles: Record<string, CSSProperties> = {
   container: {
     minHeight: '100vh',
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#fff5eb',
     padding: '2rem 0'
   },
   contentWrapper: {
@@ -33,10 +33,14 @@ const styles: Record<string, CSSProperties> = {
     padding: '0 1rem'
   },
   heading: {
-    fontSize: '1.875rem',
+    fontSize: '2rem',
     fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: '2rem'
+    color: '#ff6b00',
+    marginBottom: '2rem',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.05em',
+    borderBottom: '3px solid #ff8534',
+    paddingBottom: '0.5rem'
   },
   errorMessage: {
     backgroundColor: '#fee2e2',
@@ -47,111 +51,120 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: '0 0.25rem 0.25rem 0'
   },
   successMessage: {
-    backgroundColor: '#dcfce7',
-    borderLeft: '4px solid #22c55e',
-    color: '#15803d',
+    backgroundColor: '#fff0e6',
+    borderLeft: '4px solid #ff6b00',
+    color: '#c74c00',
     padding: '1rem',
     marginBottom: '1.5rem',
     borderRadius: '0 0.25rem 0.25rem 0'
   },
-  gridContainer: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: '2rem',
-    marginBottom: '2rem'
-  },
   formCard: {
     backgroundColor: 'white',
     padding: '1.5rem',
-    borderRadius: '0.5rem',
-    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
+    borderRadius: '0.75rem',
+    boxShadow: '0 4px 6px -1px rgba(255, 107, 0, 0.1), 0 2px 4px -1px rgba(255, 107, 0, 0.06)',
+    marginBottom: '2rem',
+    border: '1px solid rgba(255, 107, 0, 0.1)'
   },
   formTitle: {
     fontSize: '1.25rem',
     fontWeight: '600',
-    color: '#374151',
-    marginBottom: '1rem'
+    color: '#ff6b00',
+    marginBottom: '1.5rem',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem'
   },
   formGroup: {
     display: 'flex',
+    gap: '1rem',
+    alignItems: 'flex-end'
+  },
+  inputGroup: {
+    flex: '1',
+    display: 'flex',
     flexDirection: 'column' as const,
-    gap: '1rem'
+    gap: '0.5rem'
+  },
+  label: {
+    fontSize: '0.875rem',
+    fontWeight: '600',
+    color: '#ff8534',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.05em'
   },
   input: {
     width: '100%',
-    padding: '0.5rem 1rem',
-    border: '1px solid #d1d5db',
-    borderRadius: '0.375rem',
-    outline: 'none'
+    padding: '0.75rem 1rem',
+    border: '2px solid #ffd1b3',
+    borderRadius: '0.5rem',
+    outline: 'none',
+    transition: 'border-color 0.2s, box-shadow 0.2s'
   },
   buttonPrimary: {
-    width: '100%',
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#ff6b00',
     color: 'white',
-    fontWeight: '500',
-    padding: '0.5rem 1rem',
-    borderRadius: '0.375rem',
+    fontWeight: '600',
+    padding: '0.75rem 1.5rem',
+    borderRadius: '0.5rem',
     border: 'none',
     cursor: 'pointer',
-    transition: 'background-color 0.2s'
-  },
-  buttonUpdate: {
-    width: '100%',
-    backgroundColor: '#eab308',
-    color: 'white',
-    fontWeight: '500',
-    padding: '0.5rem 1rem',
-    borderRadius: '0.375rem',
-    border: 'none',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s'
+    transition: 'all 0.2s',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.05em'
   },
   table: {
     width: '100%',
     backgroundColor: 'white',
-    borderRadius: '0.5rem',
+    borderRadius: '0.75rem',
     overflow: 'hidden',
-    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
+    boxShadow: '0 4px 6px -1px rgba(255, 107, 0, 0.1), 0 2px 4px -1px rgba(255, 107, 0, 0.06)'
   },
   tableHeader: {
-    backgroundColor: '#f9fafb',
-    padding: '0.75rem 1.5rem',
+    backgroundColor: '#fff5eb',
+    padding: '1rem 1.5rem',
     textAlign: 'left' as const,
     fontSize: '0.75rem',
-    fontWeight: '500',
-    color: '#6b7280',
+    fontWeight: '600',
+    color: '#ff6b00',
     textTransform: 'uppercase' as const,
-    letterSpacing: '0.05em'
+    letterSpacing: '0.05em',
+    borderBottom: '2px solid #ffd1b3'
   },
   tableCell: {
     padding: '1rem 1.5rem',
-    whiteSpace: 'nowrap' as const,
     fontSize: '0.875rem',
-    color: '#111827'
+    color: '#4b5563',
+    borderBottom: '1px solid #ffd1b3',
+    transition: 'background-color 0.2s'
   },
-  buttonDelete: {
-    backgroundColor: '#ef4444',
-    color: 'white',
-    padding: '0.25rem 0.75rem',
-    borderRadius: '0.375rem',
-    fontSize: '0.875rem',
+  actionButton: {
+    padding: '0.5rem',
     border: 'none',
+    borderRadius: '0.5rem',
     cursor: 'pointer',
-    marginRight: '0.5rem'
+    marginRight: '0.5rem',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all 0.2s'
   },
-  buttonView: {
-    backgroundColor: '#22c55e',
-    color: 'white',
-    padding: '0.25rem 0.75rem',
-    borderRadius: '0.375rem',
-    fontSize: '0.875rem',
-    border: 'none',
-    cursor: 'pointer'
+  editButton: {
+    backgroundColor: '#ff8534',
+    color: 'white'
+  },
+  deleteButton: {
+    backgroundColor: '#ef4444',
+    color: 'white'
   },
   loadingOverlay: {
     position: 'fixed' as const,
     inset: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(255, 107, 0, 0.1)',
+    backdropFilter: 'blur(4px)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -160,10 +173,13 @@ const styles: Record<string, CSSProperties> = {
   loadingSpinner: {
     height: '3rem',
     width: '3rem',
-    border: '4px solid #3b82f6',
+    border: '4px solid #ff6b00',
     borderTop: '4px solid transparent',
     borderRadius: '50%',
     animation: 'spin 1s linear infinite'
+  },
+  tableRow: {
+    transition: 'background-color 0.2s'
   }
 };
 
@@ -172,14 +188,12 @@ export default function UserManagement() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const [newUser, setNewUser] = useState<UserFormData>({ userId: "", username: "", age: "" });
-  const [updateUser, setUpdateUser] = useState<UserFormData>({ userId: "", username: "", age: "" });
   const [successMessage, setSuccessMessage] = useState<string>("");
 
   useEffect(() => {
     fetchUsers();
   }, []);
 
-  // Clear success message after 3 seconds
   useEffect(() => {
     if (successMessage) {
       const timer = setTimeout(() => {
@@ -191,10 +205,6 @@ export default function UserManagement() {
 
   const handleNewUserChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof UserFormData) => {
     setNewUser({ ...newUser, [field]: e.target.value });
-  };
-
-  const handleUpdateUserChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof UserFormData) => {
-    setUpdateUser({ ...updateUser, [field]: e.target.value });
   };
 
   async function fetchUsers(): Promise<void> {
@@ -255,43 +265,6 @@ export default function UserManagement() {
     }
   }
 
-  async function updateUserDetails(): Promise<void> {
-    if (!updateUser.userId || !updateUser.username || !updateUser.age) {
-      setError('Please fill in all fields');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/edituser`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: updateUser.userId,
-          username: updateUser.username,
-          age: parseInt(updateUser.age)
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update user');
-      }
-
-      setUpdateUser({ userId: '', username: '', age: '' });
-      await fetchUsers();
-      setSuccessMessage('User updated successfully');
-      setError("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update user');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   async function deleteUser(userId: string): Promise<void> {
     if (!confirm('Are you sure you want to delete this user?')) {
       return;
@@ -319,27 +292,38 @@ export default function UserManagement() {
     }
   }
 
-  async function fetchUserById(userId: string): Promise<void> {
+  async function editUser(user: User): Promise<void> {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/getuser?userId=${userId}`);
+      const newUsername = prompt('Enter new username:', user.username);
+      const newAge = prompt('Enter new age:', user.age.toString());
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to fetch user');
+      if (!newUsername || !newAge) {
+        return;
       }
 
-      const data = await response.json();
-      if (data.user) {
-        setUpdateUser({
-          userId: data.user.userId,
-          username: data.user.username,
-          age: data.user.age.toString()
-        });
+      const response = await fetch(`${API_BASE_URL}/edituser`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.userId,
+          username: newUsername,
+          age: parseInt(newAge)
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update user');
       }
+
+      await fetchUsers();
+      setSuccessMessage('User updated successfully');
       setError("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch user');
+      setError(err instanceof Error ? err.message : 'Failed to update user');
       console.error(err);
     } finally {
       setLoading(false);
@@ -363,84 +347,58 @@ export default function UserManagement() {
           </div>
         )}
 
-        <div style={styles.gridContainer}>
-          <div style={styles.formCard}>
-            <h2 style={styles.formTitle}>Add New User</h2>
-            <div style={styles.formGroup}>
+        <div style={styles.formCard}>
+          <h2 style={styles.formTitle}>
+            <FaUserPlus />
+            Add New User
+          </h2>
+          <div style={styles.formGroup}>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>User ID</label>
               <input
                 type="text"
-                placeholder="User ID"
+                placeholder="Enter user ID"
                 style={styles.input}
                 value={newUser.userId}
                 onChange={(e) => handleNewUserChange(e, 'userId')}
               />
+            </div>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Username</label>
               <input
                 type="text"
-                placeholder="Username"
+                placeholder="Enter username"
                 style={styles.input}
                 value={newUser.username}
                 onChange={(e) => handleNewUserChange(e, 'username')}
               />
+            </div>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Age</label>
               <input
                 type="number"
-                placeholder="Age"
+                placeholder="Enter age"
                 style={styles.input}
                 value={newUser.age}
                 onChange={(e) => handleNewUserChange(e, 'age')}
               />
-              <button 
-                onClick={addUser}
-                disabled={loading}
-                style={{
-                  ...styles.buttonPrimary,
-                  opacity: loading ? 0.7 : 1,
-                }}
-              >
-                {loading ? 'Adding...' : 'Add User'}
-              </button>
             </div>
-          </div>
-
-          <div style={styles.formCard}>
-            <h2 style={styles.formTitle}>Update User</h2>
-            <div style={styles.formGroup}>
-              <input
-                type="text"
-                placeholder="User ID"
-                style={styles.input}
-                value={updateUser.userId}
-                onChange={(e) => handleUpdateUserChange(e, 'userId')}
-              />
-              <input
-                type="text"
-                placeholder="New Username"
-                style={styles.input}
-                value={updateUser.username}
-                onChange={(e) => handleUpdateUserChange(e, 'username')}
-              />
-              <input
-                type="number"
-                placeholder="New Age"
-                style={styles.input}
-                value={updateUser.age}
-                onChange={(e) => handleUpdateUserChange(e, 'age')}
-              />
-              <button 
-                onClick={updateUserDetails}
-                disabled={loading}
-                style={{
-                  ...styles.buttonUpdate,
-                  opacity: loading ? 0.7 : 1,
-                }}
-              >
-                {loading ? 'Updating...' : 'Update User'}
-              </button>
-            </div>
+            <button 
+              onClick={addUser}
+              disabled={loading}
+              style={{
+                ...styles.buttonPrimary,
+                opacity: loading ? 0.7 : 1,
+              }}
+            >
+              <FaUserPlus />
+              Add User
+            </button>
           </div>
         </div>
 
         <div style={styles.table}>
-          <table style={{ width: '100%' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
                 <th style={styles.tableHeader}>User ID</th>
@@ -451,30 +409,34 @@ export default function UserManagement() {
             </thead>
             <tbody>
               {users.map((user) => (
-                <tr key={user.userId} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                <tr key={user.userId} style={styles.tableRow}>
                   <td style={styles.tableCell}>{user.userId}</td>
                   <td style={styles.tableCell}>{user.username}</td>
                   <td style={styles.tableCell}>{user.age}</td>
                   <td style={styles.tableCell}>
                     <button
+                      onClick={() => editUser(user)}
+                      disabled={loading}
+                      style={{
+                        ...styles.actionButton,
+                        ...styles.editButton,
+                        opacity: loading ? 0.7 : 1,
+                      }}
+                      title="Edit user"
+                    >
+                      <FaEdit />
+                    </button>
+                    <button
                       onClick={() => deleteUser(user.userId)}
                       disabled={loading}
                       style={{
-                        ...styles.buttonDelete,
+                        ...styles.actionButton,
+                        ...styles.deleteButton,
                         opacity: loading ? 0.7 : 1,
                       }}
+                      title="Delete user"
                     >
-                      Delete
-                    </button>
-                    <button
-                      onClick={() => fetchUserById(user.userId)}
-                      disabled={loading}
-                      style={{
-                        ...styles.buttonView,
-                        opacity: loading ? 0.7 : 1,
-                      }}
-                    >
-                      View
+                      <FaTrash />
                     </button>
                   </td>
                 </tr>
@@ -494,6 +456,19 @@ export default function UserManagement() {
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+
+        tr:hover {
+          background-color: #fff5eb;
+        }
+
+        input:focus {
+          border-color: #ff6b00;
+          box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.1);
+        }
+
+        button:hover {
+          transform: translateY(-1px);
         }
       `}</style>
     </div>
