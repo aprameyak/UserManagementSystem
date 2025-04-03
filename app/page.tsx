@@ -3,12 +3,8 @@
 import { useState, useEffect, CSSProperties } from "react";
 import { FaEdit, FaTrash, FaUserPlus } from 'react-icons/fa';
 
-if (!process.env.NEXT_PUBLIC_API_BASE_URL) {
-  throw new Error('API Base URL not configured');
-}
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-
+const API_BASE_URL = "https://5lq0esn5el.execute-api.us-east-1.amazonaws.com";
 interface User {
   userId: string;
   username: string;
