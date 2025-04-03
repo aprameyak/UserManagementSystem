@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, CSSProperties } from "react";
+import { useState, useEffect } from "react";
+import type { CSSProperties } from 'react';
 import { FaEdit, FaTrash, FaUserPlus } from 'react-icons/fa';
 
 
