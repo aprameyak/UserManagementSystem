@@ -1,11 +1,37 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { CSSProperties } from 'react';
 import { FaEdit, FaTrash, FaUserPlus } from 'react-icons/fa';
 
+// API Configuration
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://5lq0esn5el.execute-api.us-east-1.amazonaws.com";
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 second
 
-const API_BASE_URL = "https://5lq0esn5el.execute-api.us-east-1.amazonaws.com";
+// API Response Types
+interface ApiError {
+  message: string;
+  code?: string;
+  statusCode?: number;
+}
+
+interface ApiResponse<T> {
+  statusCode: number;
+  body: string;
+  headers: {
+    [key: string]: string;
+  };
+}
+
+interface LambdaResponse<T> {
+  statusCode: number;
+  body: T;
+  headers: {
+    [key: string]: string;
+  };
+}
+
 interface User {
   userId: string;
   username: string;
@@ -17,6 +43,102 @@ interface UserFormData {
   username: string;
   age: string;
 }
+
+interface EditModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  user: User | null;
+  onSave: (user: User) => Promise<void>;
+}
+
+const EditModal: React.FC<EditModalProps> = ({ isOpen, onClose, user, onSave }) => {
+  const [editedUser, setEditedUser] = useState<User | null>(user);
+  const [error, setError] = useState<string>("");
+
+  useEffect(() => {
+    setEditedUser(user);
+  }, [user]);
+
+  if (!isOpen || !editedUser) return null;
+
+  const handleSave = async () => {
+    if (!editedUser.username.trim()) {
+      setError("Username is required");
+      return;
+    }
+    if (editedUser.age <= 0) {
+      setError("Age must be greater than 0");
+      return;
+    }
+    await onSave(editedUser);
+    onClose();
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000
+    }}>
+      <div style={{
+        backgroundColor: 'white',
+        padding: '2rem',
+        borderRadius: '0.75rem',
+        width: '100%',
+        maxWidth: '500px'
+      }}>
+        <h2 style={{ color: '#ff6b00', marginBottom: '1.5rem' }}>Edit User</h2>
+        {error && (
+          <div style={styles.errorMessage}>
+            <p>{error}</p>
+          </div>
+        )}
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={styles.label}>Username</label>
+          <input
+            type="text"
+            value={editedUser.username}
+            onChange={(e) => setEditedUser({ ...editedUser, username: e.target.value })}
+            style={styles.input}
+          />
+        </div>
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={styles.label}>Age</label>
+          <input
+            type="number"
+            value={editedUser.age}
+            onChange={(e) => setEditedUser({ ...editedUser, age: parseInt(e.target.value) || 0 })}
+            style={styles.input}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+          <button
+            onClick={onClose}
+            style={{
+              ...styles.buttonPrimary,
+              backgroundColor: '#6b7280'
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            style={styles.buttonPrimary}
+          >
+            Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const styles: Record<string, CSSProperties> = {
   container: {
@@ -180,16 +302,97 @@ const styles: Record<string, CSSProperties> = {
   }
 };
 
+// API Client
+const apiClient = {
+  async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const url = `${API_BASE_URL}${endpoint}`;
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+
+    let retries = 0;
+    while (retries < MAX_RETRIES) {
+      try {
+        const response = await fetch(url, { ...options, headers });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({
+            message: `HTTP error! status: ${response.status}`
+          }));
+          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        retries++;
+        if (retries === MAX_RETRIES) {
+          throw error;
+        }
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * retries));
+      }
+    }
+    throw new Error('Max retries reached');
+  },
+
+  async getUsers(): Promise<User[]> {
+    const response = await this.request<{ items: User[] }>('/getusers');
+    return response.items || [];
+  },
+
+  async addUser(user: { userId: string; username: string; age: number }): Promise<string> {
+    const response = await this.request<{ message: string }>('/insertuser', {
+      method: 'POST',
+      body: JSON.stringify(user),
+    });
+    return response.message;
+  },
+
+  async updateUser(user: User): Promise<string> {
+    const response = await this.request<{ message: string }>('/edituser', {
+      method: 'PUT',
+      body: JSON.stringify(user),
+    });
+    return response.message;
+  },
+
+  async deleteUser(userId: string): Promise<string> {
+    const response = await this.request<{ message: string }>('/deleteuser', {
+      method: 'DELETE',
+      body: JSON.stringify({ userId }),
+    });
+    return response.message;
+  },
+};
+
 export default function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const [newUser, setNewUser] = useState<UserFormData>({ userId: "", username: "", age: "" });
   const [successMessage, setSuccessMessage] = useState<string>("");
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [formErrors, setFormErrors] = useState<Partial<UserFormData>>({});
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await apiClient.getUsers();
+      setUsers(data);
+      setError("");
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch users';
+      setError(errorMessage);
+      console.error('Error fetching users:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   useEffect(() => {
     if (successMessage) {
@@ -200,63 +403,42 @@ export default function UserManagement() {
     }
   }, [successMessage]);
 
-  const handleNewUserChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof UserFormData) => {
-    setNewUser({ ...newUser, [field]: e.target.value });
+  const validateForm = (): boolean => {
+    const errors: Partial<UserFormData> = {};
+    if (!newUser.userId.trim()) errors.userId = "User ID is required";
+    if (!newUser.username.trim()) errors.username = "Username is required";
+    if (!newUser.age || parseInt(newUser.age) <= 0) errors.age = "Age must be greater than 0";
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
-  async function fetchUsers(): Promise<void> {
-    try {
-      setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/getusers`);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      setUsers(data.items || []);
-      setError("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch users');
-      console.error(err);
-    } finally {
-      setLoading(false);
+  const handleNewUserChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof UserFormData) => {
+    setNewUser({ ...newUser, [field]: e.target.value });
+    if (formErrors[field]) {
+      setFormErrors({ ...formErrors, [field]: undefined });
     }
-  }
+  };
 
   async function addUser(): Promise<void> {
-    if (!newUser.userId || !newUser.username || !newUser.age) {
-      setError('Please fill in all fields');
-      return;
-    }
+    if (!validateForm()) return;
 
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/insertuser`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: newUser.userId,
-          username: newUser.username,
-          age: parseInt(newUser.age)
-        }),
+      const message = await apiClient.addUser({
+        userId: newUser.userId.trim(),
+        username: newUser.username.trim(),
+        age: parseInt(newUser.age)
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to add user');
-      }
 
       setNewUser({ userId: '', username: '', age: '' });
       await fetchUsers();
-      setSuccessMessage('User added successfully');
+      setSuccessMessage(message || 'User added successfully');
       setError("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add user');
-      console.error(err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to add user';
+      setError(errorMessage);
+      console.error('Error adding user:', err);
     } finally {
       setLoading(false);
     }
@@ -269,59 +451,30 @@ export default function UserManagement() {
 
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/deleteuser?userId=${userId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to delete user');
-      }
-
+      const message = await apiClient.deleteUser(userId);
       await fetchUsers();
-      setSuccessMessage('User deleted successfully');
+      setSuccessMessage(message || 'User deleted successfully');
       setError("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete user');
-      console.error(err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete user';
+      setError(errorMessage);
+      console.error('Error deleting user:', err);
     } finally {
       setLoading(false);
     }
   }
 
-  async function editUser(user: User): Promise<void> {
+  async function handleEditSave(editedUser: User): Promise<void> {
     try {
       setLoading(true);
-      const newUsername = prompt('Enter new username:', user.username);
-      const newAge = prompt('Enter new age:', user.age.toString());
-      
-      if (!newUsername || !newAge) {
-        return;
-      }
-
-      const response = await fetch(`${API_BASE_URL}/edituser`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: user.userId,
-          username: newUsername,
-          age: parseInt(newAge)
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update user');
-      }
-
+      const message = await apiClient.updateUser(editedUser);
       await fetchUsers();
-      setSuccessMessage('User updated successfully');
+      setSuccessMessage(message || 'User updated successfully');
       setError("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update user');
-      console.error(err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update user';
+      setError(errorMessage);
+      console.error('Error updating user:', err);
     } finally {
       setLoading(false);
     }
@@ -355,40 +508,74 @@ export default function UserManagement() {
               <input
                 type="text"
                 placeholder="Enter user ID"
-                style={styles.input}
+                style={{
+                  ...styles.input,
+                  borderColor: formErrors.userId ? '#ef4444' : '#ffd1b3'
+                }}
                 value={newUser.userId}
                 onChange={(e) => handleNewUserChange(e, 'userId')}
+                aria-invalid={!!formErrors.userId}
+                aria-describedby={formErrors.userId ? 'userId-error' : undefined}
               />
+              {formErrors.userId && (
+                <span id="userId-error" style={{ color: '#ef4444', fontSize: '0.875rem' }}>
+                  {formErrors.userId}
+                </span>
+              )}
             </div>
             <div style={styles.inputGroup}>
               <label style={styles.label}>Username</label>
               <input
                 type="text"
                 placeholder="Enter username"
-                style={styles.input}
+                style={{
+                  ...styles.input,
+                  borderColor: formErrors.username ? '#ef4444' : '#ffd1b3'
+                }}
                 value={newUser.username}
                 onChange={(e) => handleNewUserChange(e, 'username')}
+                aria-invalid={!!formErrors.username}
+                aria-describedby={formErrors.username ? 'username-error' : undefined}
               />
+              {formErrors.username && (
+                <span id="username-error" style={{ color: '#ef4444', fontSize: '0.875rem' }}>
+                  {formErrors.username}
+                </span>
+              )}
             </div>
             <div style={styles.inputGroup}>
               <label style={styles.label}>Age</label>
               <input
                 type="number"
                 placeholder="Enter age"
-                style={styles.input}
+                style={{
+                  ...styles.input,
+                  borderColor: formErrors.age ? '#ef4444' : '#ffd1b3'
+                }}
                 value={newUser.age}
                 onChange={(e) => handleNewUserChange(e, 'age')}
+                aria-invalid={!!formErrors.age}
+                aria-describedby={formErrors.age ? 'age-error' : undefined}
               />
+              {formErrors.age && (
+                <span id="age-error" style={{ color: '#ef4444', fontSize: '0.875rem' }}>
+                  {formErrors.age}
+                </span>
+              )}
             </div>
             <button 
               onClick={addUser}
-              disabled={loading}
+              disabled={loading || Object.keys(formErrors).length > 0}
               style={{
                 ...styles.buttonPrimary,
-                opacity: loading ? 0.7 : 1,
+                opacity: (loading || Object.keys(formErrors).length > 0) ? 0.7 : 1,
               }}
             >
-              <FaUserPlus />
+              {loading ? (
+                <div style={{ width: '20px', height: '20px', border: '2px solid white', borderTop: '2px solid transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+              ) : (
+                <FaUserPlus />
+              )}
               Add User
             </button>
           </div>
@@ -405,39 +592,49 @@ export default function UserManagement() {
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
-                <tr key={user.userId} style={styles.tableRow}>
-                  <td style={styles.tableCell}>{user.userId}</td>
-                  <td style={styles.tableCell}>{user.username}</td>
-                  <td style={styles.tableCell}>{user.age}</td>
-                  <td style={styles.tableCell}>
-                    <button
-                      onClick={() => editUser(user)}
-                      disabled={loading}
-                      style={{
-                        ...styles.actionButton,
-                        ...styles.editButton,
-                        opacity: loading ? 0.7 : 1,
-                      }}
-                      title="Edit user"
-                    >
-                      <FaEdit />
-                    </button>
-                    <button
-                      onClick={() => deleteUser(user.userId)}
-                      disabled={loading}
-                      style={{
-                        ...styles.actionButton,
-                        ...styles.deleteButton,
-                        opacity: loading ? 0.7 : 1,
-                      }}
-                      title="Delete user"
-                    >
-                      <FaTrash />
-                    </button>
+              {users.length === 0 ? (
+                <tr>
+                  <td colSpan={4} style={{ ...styles.tableCell, textAlign: 'center' }}>
+                    No users found
                   </td>
                 </tr>
-              ))}
+              ) : (
+                users.map((user) => (
+                  <tr key={user.userId} style={styles.tableRow}>
+                    <td style={styles.tableCell}>{user.userId}</td>
+                    <td style={styles.tableCell}>{user.username}</td>
+                    <td style={styles.tableCell}>{user.age}</td>
+                    <td style={styles.tableCell}>
+                      <button
+                        onClick={() => setEditingUser(user)}
+                        disabled={loading}
+                        style={{
+                          ...styles.actionButton,
+                          ...styles.editButton,
+                          opacity: loading ? 0.7 : 1,
+                        }}
+                        title="Edit user"
+                        aria-label="Edit user"
+                      >
+                        <FaEdit />
+                      </button>
+                      <button
+                        onClick={() => deleteUser(user.userId)}
+                        disabled={loading}
+                        style={{
+                          ...styles.actionButton,
+                          ...styles.deleteButton,
+                          opacity: loading ? 0.7 : 1,
+                        }}
+                        title="Delete user"
+                        aria-label="Delete user"
+                      >
+                        <FaTrash />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -448,6 +645,13 @@ export default function UserManagement() {
           <div style={styles.loadingSpinner} />
         </div>
       )}
+
+      <EditModal
+        isOpen={!!editingUser}
+        onClose={() => setEditingUser(null)}
+        user={editingUser}
+        onSave={handleEditSave}
+      />
 
       <style jsx>{`
         @keyframes spin {
